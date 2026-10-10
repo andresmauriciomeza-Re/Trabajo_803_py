@@ -5,50 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ejercicios de Python - Trabajo_803_py</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js"></script>
+    <style>
+        /* Estilo básico del menú y del modal */
+        body { font-family: sans-serif; margin: 20px; }
+        /* Sin esto, el display de abajo anula el atributo hidden */
+        [hidden] { display: none !important; }
+        #menu button, #despedida button { display: block; width: 100%; max-width: 420px;
+            margin: 8px 0; padding: 10px; font-size: 16px; cursor: pointer; }
+        /* Fondo atenuado detrás del modal */
+        #fondo-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); display: flex; align-items: center;
+            justify-content: center; }
+        /* La ventana del modal */
+        .modal { background: white; padding: 20px; border-radius: 8px;
+            width: 90%; max-width: 520px; max-height: 90vh; overflow: auto; }
+        .modal input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
+        .modal button { padding: 8px 16px; margin-right: 8px; cursor: pointer; }
+        #salida { background: #f4f4f4; border: 1px solid #ccc; padding: 10px;
+            white-space: pre-wrap; min-height: 60px; }
+    </style>
 </head>
 <body>
     <h1>Ejercicios de Python - Trabajo_803_py</h1>
-    <p>Los tres ejercicios se ejecutan con Python real en el navegador (Pyodide) cargando los archivos .py de la carpeta <strong>ejercicios</strong>. Se requiere conexión a internet la primera vez y un servidor local (con doble clic el fetch no funciona).</p>
+    <p>Los ejercicios se ejecutan con Python real en el navegador (Pyodide) cargando
+       los archivos .py de la carpeta <strong>ejercicios</strong>. Se requiere conexión
+       a internet la primera vez y un servidor local (con doble clic el fetch no funciona).</p>
     <p>Estado del intérprete: <output id="estado">Cargando el intérprete Python...</output></p>
 
-    <section>
-        <h2>Ejercicio 1 - E28.py: Positivos, negativos y ceros</h2>
-        <p>Toma una lista de 20 números y la separa en tres listas: positivos, negativos y ceros.</p>
-        <p><button type="button" data-run="E28">Ejecutar</button></p>
-        <h3>Salida</h3>
-        <pre id="salida-E28">(aún no se ha ejecutado)</pre>
+    <!-- MENÚ DE SELECCIÓN: solo opciones válidas (botones) -->
+    <section id="menu">
+        <h2>=== MENÚ DE EJERCICIOS ===</h2>
+        <button type="button" data-opcion="1">1. Números primos (18)</button>
+        <button type="button" data-opcion="2">2. Buscar nombres (25)</button>
+        <button type="button" data-opcion="3">3. Clasificar positivos, negativos y ceros (28)</button>
+        <button type="button" data-opcion="0">0. Salir</button>
     </section>
 
-    <section>
-        <h2>Ejercicio 2 - Ejercicio18.py: Números primos</h2>
-        <p>Pide un valor N y muestra todos los números primos entre 1 y N, con su cantidad total.</p>
-        <p>
-            <label for="valN">Valor de N:</label>
-            <input type="number" id="valN" value="50">
-            <button type="button" data-run="Ejercicio18">Ejecutar</button>
-        </p>
-        <h3>Salida</h3>
-        <pre id="salida-Ejercicio18">(aún no se ha ejecutado)</pre>
+    <!-- Mensaje que aparece al elegir la opción 0 -->
+    <section id="despedida" hidden>
+        <h2>¡Hasta luego!</h2>
+        <button type="button" id="btn-volver">Volver al menú</button>
     </section>
 
-    <section>
-        <h2>Ejercicio 3 - epaso25.py: Buscar nombres</h2>
-        <p>Busca un nombre dentro de una lista de 10 aprendices e indica si existe y en qué posición está.</p>
-        <p>
-            <label for="valNombre">Nombre del aprendiz:</label>
-            <input type="text" id="valNombre" value="Maria">
-            <button type="button" data-run="epaso25">Ejecutar</button>
-        </p>
-        <h3>Salida</h3>
-        <pre id="salida-epaso25">(aún no se ha ejecutado)</pre>
-    </section>
+    <!-- MODAL: se abre al elegir un ejercicio -->
+    <div id="fondo-modal" hidden>
+        <div class="modal">
+            <h2 id="modal-titulo"></h2>
+            <div id="modal-campo" hidden>
+                <label id="modal-etiqueta" for="modal-entrada"></label>
+                <input type="text" id="modal-entrada">
+            </div>
+            <p>
+                <button type="button" id="btn-ejecutar">Ejecutar</button>
+                <button type="button" id="btn-cerrar">Cerrar</button>
+            </p>
+            <h3>Salida</h3>
+            <pre id="salida">(aún no se ha ejecutado)</pre>
+        </div>
+    </div>
 
     <script>
         // Estado general de la página
         var pyodide = null;          // intérprete de Python (Pyodide)
         var pyodideListo = false;    // true cuando Pyodide terminó de cargar
-        var salidaActual = null;     // <pre> de salida del ejercicio en curso
-        var entradaActual = "";      // valor que devolverá input() en Python
+        var ejercicioActual = null;  // config del ejercicio abierto en el modal
+
+        // Cada opción del menú: archivo .py, título del modal y campo de entrada
+        var opciones = {
+            "1": { archivo: "Ejercicio18", titulo: "Ejercicio 18 - Números primos",
+                   campo: true, etiqueta: "Valor de N:" },
+            "2": { archivo: "epaso25", titulo: "Ejercicio 25 - Buscar nombres",
+                   campo: true, etiqueta: "Nombre del aprendiz:" },
+            "3": { archivo: "E28", titulo: "Ejercicio 28 - Positivos, negativos y ceros",
+                   campo: false, etiqueta: "" }
+        };
 
         // Relación entre cada ejercicio y su archivo Python real
         // (los archivos están en la subcarpeta "ejercicios")
@@ -58,19 +88,18 @@
             epaso25: "ejercicios/epaso25.py"
         };
 
-        // Escribe texto en el <pre> de salida del ejercicio en curso
+        // Escribe texto en el <pre> de salida del modal
         function escribirSalida(texto) {
-            if (salidaActual === null) return;
-            salidaActual.textContent += texto;
+            var salida = document.getElementById("salida");
+            if (salida) salida.textContent += texto;
         }
 
         // Reemplazo de input(): Python llama a esta función y recibe
-        // el valor del campo que corresponde al ejercicio
+        // el valor del campo del modal (o del campo vacío si no hay)
         window.leerEntrada = function (prompt) {
-            if (prompt) {
-                escribirSalida(prompt + "\n");
-            }
-            return entradaActual;
+            if (prompt) escribirSalida(prompt + "\n");
+            var campo = document.getElementById("modal-entrada");
+            return campo ? campo.value : "";
         };
 
         // Actualiza el mensaje de estado de Pyodide
@@ -78,10 +107,35 @@
             document.getElementById("estado").textContent = msg;
         }
 
+        // Abre el modal del ejercicio elegido en el menú
+        function abrirModal(opcion) {
+            var cfg = opciones[opcion];
+            ejercicioActual = cfg;
+            document.getElementById("modal-titulo").textContent = cfg.titulo;
+            // Solo se muestra el campo si el ejercicio pide un dato
+            var campo = document.getElementById("modal-campo");
+            if (cfg.campo) {
+                campo.hidden = false;
+                document.getElementById("modal-etiqueta").textContent = cfg.etiqueta;
+                document.getElementById("modal-entrada").value = "";
+            } else {
+                campo.hidden = true;
+            }
+            document.getElementById("salida").textContent = "(aún no se ha ejecutado)";
+            document.getElementById("fondo-modal").hidden = false;
+            if (cfg.campo) document.getElementById("modal-entrada").focus();
+        }
+
+        // Cierra el modal y vuelve al menú
+        function cerrarModal() {
+            document.getElementById("fondo-modal").hidden = true;
+            ejercicioActual = null;
+        }
+
         // Descarga el archivo .py del ejercicio con fetch() y lo devuelve como texto.
         // Se decodifica como UTF-8 explícitamente para que las tildes se lean bien.
-        async function cargarCodigo(id) {
-            var ruta = archivosPython[id];
+        async function cargarCodigo(archivo) {
+            var ruta = "ejercicios/" + archivo + ".py";
             var respuesta;
             try {
                 respuesta = await fetch(ruta);
@@ -102,10 +156,10 @@
                 pyodide = await loadPyodide({
                     indexURL: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/"
                 });
-                // La salida de print() va al <pre> del ejercicio en curso
+                // La salida de print() va al <pre> del modal
                 pyodide.setStdout({ batched: function (s) { escribirSalida(s + "\n"); } });
                 pyodide.setStderr({ batched: function (s) { escribirSalida(s + "\n"); } });
-                // Parche: input() de Python devuelve el valor del campo de la página
+                // Parche: input() de Python devuelve el valor del campo del modal
                 await pyodide.runPythonAsync(
                     "import builtins, js\n" +
                     "def _input(prompt=''):\n" +
@@ -119,26 +173,19 @@
             }
         }
 
-        // Ejecuta el ejercicio indicado: primero descarga su archivo .py
-        // y después lo ejecuta con Pyodide
-        async function ejecutar(id) {
+        // Ejecuta el ejercicio del modal: descarga su .py, carga las
+        // funciones y llama a la del ejercicio elegido
+        async function ejecutar() {
+            var salida = document.getElementById("salida");
+            var id = ejercicioActual.archivo;
+
             // Si Pyodide aún no está listo, se avisa en la salida
             if (!pyodideListo) {
-                salidaActual = document.getElementById("salida-" + id);
-                salidaActual.textContent = "El intérprete Python aún no está cargado. Espera al estado \"Listo\" o recarga la página.";
+                salida.textContent = "El intérprete Python aún no está cargado. Espera al estado \"Listo\" o recarga la página.";
                 return;
             }
 
-            // Toma el valor del campo de entrada que corresponde
-            // (E28 no usa input(), por eso no tiene campo)
-            if (id === "Ejercicio18") {
-                entradaActual = document.getElementById("valN").value;
-            } else if (id === "epaso25") {
-                entradaActual = document.getElementById("valNombre").value;
-            }
-
-            salidaActual = document.getElementById("salida-" + id);
-            salidaActual.textContent = "";
+            salida.textContent = "";
 
             // 1) Descargar el archivo .py real
             var codigo;
@@ -151,20 +198,52 @@
                 return;
             }
 
-            // 2) Ejecutar el código Python descargado
+            // 2) Cargar las funciones del archivo (solo contiene def)
+            // 3) Llamar a la función del ejercicio; input() toma el valor del campo
             try {
                 await pyodide.runPythonAsync(codigo);
+                var llamada = {
+                    E28: "ejercicio_28()",
+                    Ejercicio18: "ejercicio_18()",
+                    epaso25: "ejercicio_25()"
+                }[id];
+                await pyodide.runPythonAsync(llamada);
             } catch (e) {
                 escribirSalida("Error en Python: " + e.message + "\n");
             }
         }
 
-        // Al cargar la página: conecta los botones y arranca Pyodide
+        // Al cargar la página: conecta botones del menú y arranca Pyodide
         document.addEventListener("DOMContentLoaded", function () {
-            document.querySelectorAll("button[data-run]").forEach(function (btn) {
+            // Opciones del menú: 1, 2 y 3 abren su modal; 0 muestra la despedida
+            document.querySelectorAll("#menu button[data-opcion]").forEach(function (btn) {
                 btn.addEventListener("click", function () {
-                    ejecutar(btn.getAttribute("data-run"));
+                    var opcion = btn.getAttribute("data-opcion");
+                    if (opcion === "0") {
+                        document.getElementById("menu").hidden = true;
+                        document.getElementById("despedida").hidden = false;
+                    } else {
+                        abrirModal(opcion);
+                    }
                 });
+            });
+            document.getElementById("btn-ejecutar").addEventListener("click", ejecutar);
+            document.getElementById("btn-cerrar").addEventListener("click", cerrarModal);
+            document.getElementById("btn-volver").addEventListener("click", function () {
+                document.getElementById("despedida").hidden = true;
+                document.getElementById("menu").hidden = false;
+            });
+            // Con Enter en el campo también se ejecuta
+            document.getElementById("modal-entrada").addEventListener("keydown", function (e) {
+                if (e.key === "Enter") ejecutar();
+            });
+            // Esc cierra el modal
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") cerrarModal();
+            });
+            // Clic en el fondo oscuro (fuera de la caja blanca) también cierra
+            document.getElementById("fondo-modal").addEventListener("click", function (e) {
+                if (e.target === this) cerrarModal();
             });
             cargarPyodide();
         });
