@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejercicios de Python - Trabajo_803_py</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js"></script>
+</head>
+<body>
+    <h1>Ejercicios de Python - Trabajo_803_py</h1>
+    <p>Los tres ejercicios se ejecutan con Python real en el navegador (Pyodide) cargando los archivos .py de la carpeta <strong>ejercicios</strong>. Se requiere conexión a internet la primera vez y un servidor local (con doble clic el fetch no funciona).</p>
+    <p>Estado del intérprete: <output id="estado">Cargando el intérprete Python...</output></p>
+
+    <section>
+        <h2>Ejercicio 1 - E28.py: Positivos, negativos y ceros</h2>
+        <p>Toma una lista de 20 números y la separa en tres listas: positivos, negativos y ceros.</p>
+        <p><button type="button" data-run="E28">Ejecutar</button></p>
+        <h3>Salida</h3>
+        <pre id="salida-E28">(aún no se ha ejecutado)</pre>
+    </section>
+
+    <section>
+        <h2>Ejercicio 2 - Ejercicio18.py: Números primos</h2>
+        <p>Pide un valor N y muestra todos los números primos entre 1 y N, con su cantidad total.</p>
+        <p>
+            <label for="valN">Valor de N:</label>
+            <input type="number" id="valN" value="50">
+            <button type="button" data-run="Ejercicio18">Ejecutar</button>
+        </p>
+        <h3>Salida</h3>
+        <pre id="salida-Ejercicio18">(aún no se ha ejecutado)</pre>
+    </section>
+
+    <section>
+        <h2>Ejercicio 3 - epaso25.py: Buscar nombres</h2>
+        <p>Busca un nombre dentro de una lista de 10 aprendices e indica si existe y en qué posición está.</p>
+        <p>
+            <label for="valNombre">Nombre del aprendiz:</label>
+            <input type="text" id="valNombre" value="Maria">
+            <button type="button" data-run="epaso25">Ejecutar</button>
+        </p>
+        <h3>Salida</h3>
+        <pre id="salida-epaso25">(aún no se ha ejecutado)</pre>
+    </section>
+
+    <script>
+        // Estado general de la página
+        var pyodide = null;          // intérprete de Python (Pyodide)
+        var pyodideListo = false;    // true cuando Pyodide terminó de cargar
+        var salidaActual = null;     // <pre> de salida del ejercicio en curso
+        var entradaActual = "";      // valor que devolverá input() en Python
+
+        // Relación entre cada ejercicio y su archivo Python real
+        // (los archivos están en la subcarpeta "ejercicios")
+        var archivosPython = {
+            E28: "ejercicios/E28.py",
+            Ejercicio18: "ejercicios/Ejercicio18.py",
+            epaso25: "ejercicios/epaso25.py"
+        };
+
+        // Escribe texto en el <pre> de salida del ejercicio en curso
+        function escribirSalida(texto) {
+            if (salidaActual === null) return;
+            salidaActual.textContent += texto;
+        }
+
+        // Reemplazo de input(): Python llama a esta función y recibe
+        // el valor del campo que corresponde al ejercicio
+        window.leerEntrada = function (prompt) {
+            if (prompt) {
+                escribirSalida(prompt + "\n");
+            }
+            return entradaActual;
+        };
+
+        // Actualiza el mensaje de estado de Pyodide
+        function mostrarEstado(msg) {
+            document.getElementById("estado").textContent = msg;
+        }
+
+        // Descarga el archivo .py del ejercicio con fetch() y lo devuelve como texto.
+        // Se decodifica como UTF-8 explícitamente para que las tildes se lean bien.
+        async function cargarCodigo(id) {
+            var ruta = archivosPython[id];
+            var respuesta;
+            try {
+                respuesta = await fetch(ruta);
+            } catch (e) {
+                throw new Error("error de red al leer " + ruta);
+            }
+            if (!respuesta.ok) {
+                throw new Error("HTTP " + respuesta.status + " al leer " + ruta);
+            }
+            var buffer = await respuesta.arrayBuffer();
+            return new TextDecoder("utf-8").decode(buffer);
+        }
+
+        // Carga Pyodide desde el CDN y deja listo el reemplazo de input()
+        async function cargarPyodide() {
+            try {
+                mostrarEstado("Cargando el intérprete Python (puede tardar un poco)...");
+                pyodide = await loadPyodide({
+                    indexURL: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/"
+                });
+                // La salida de print() va al <pre> del ejercicio en curso
+                pyodide.setStdout({ batched: function (s) { escribirSalida(s + "\n"); } });
+                pyodide.setStderr({ batched: function (s) { escribirSalida(s + "\n"); } });
+                // Parche: input() de Python devuelve el valor del campo de la página
+                await pyodide.runPythonAsync(
+                    "import builtins, js\n" +
+                    "def _input(prompt=''):\n" +
+                    "    return js.leerEntrada(str(prompt))\n" +
+                    "builtins.input = _input\n"
+                );
+                pyodideListo = true;
+                mostrarEstado("Listo. Ya puedes ejecutar los ejercicios.");
+            } catch (e) {
+                mostrarEstado("Error al cargar Pyodide: " + e.message + " (¿sin conexión a internet?)");
+            }
+        }
+
+        // Ejecuta el ejercicio indicado: primero descarga su archivo .py
+        // y después lo ejecuta con Pyodide
+        async function ejecutar(id) {
+            // Si Pyodide aún no está listo, se avisa en la salida
+            if (!pyodideListo) {
+                salidaActual = document.getElementById("salida-" + id);
+                salidaActual.textContent = "El intérprete Python aún no está cargado. Espera al estado \"Listo\" o recarga la página.";
+                return;
+            }
+
+            // Toma el valor del campo de entrada que corresponde
+            // (E28 no usa input(), por eso no tiene campo)
+            if (id === "Ejercicio18") {
+                entradaActual = document.getElementById("valN").value;
+            } else if (id === "epaso25") {
+                entradaActual = document.getElementById("valNombre").value;
+            }
+
+            salidaActual = document.getElementById("salida-" + id);
+            salidaActual.textContent = "";
+
+            // 1) Descargar el archivo .py real
+            var codigo;
+            try {
+                codigo = await cargarCodigo(id);
+            } catch (e) {
+                escribirSalida("No se pudo cargar el archivo " + archivosPython[id] + ".\n");
+                escribirSalida("Detalle: " + e.message + "\n");
+                escribirSalida("Recuerda abrir la página desde un servidor local (Live Server o python -m http.server).\n");
+                return;
+            }
+
+            // 2) Ejecutar el código Python descargado
+            try {
+                await pyodide.runPythonAsync(codigo);
+            } catch (e) {
+                escribirSalida("Error en Python: " + e.message + "\n");
+            }
+        }
+
+        // Al cargar la página: conecta los botones y arranca Pyodide
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll("button[data-run]").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    ejecutar(btn.getAttribute("data-run"));
+                });
+            });
+            cargarPyodide();
+        });
+    </script>
+</body>
+</html>
