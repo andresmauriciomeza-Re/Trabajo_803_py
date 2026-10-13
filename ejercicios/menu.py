@@ -6,6 +6,7 @@ from tkinter import scrolledtext
 
 from E28 import ejercicio_28
 from Ejercicio18 import ejercicio_18
+from Trabajo_803_py.ejercicios import enteros24
 from epaso25 import ejercicio_25
 
 
@@ -73,6 +74,10 @@ def mostrar_menu(root):
     tk.Button(root, text="3. Clasificar positivos, negativos y ceros (28)",
               command=lambda: abrir_modal(root, "Ejercicio 28",
                                           None, ejercicio_28)
+              ).pack(fill="x", padx=25, pady=5)
+    tk.Button(root, text="4. Encontrar el mayor y el segundo mayor (24)",
+              command=lambda: abrir_modal(root, "Ejercicio 24",
+                                          None, enteros24)
               ).pack(fill="x", padx=25, pady=5)
     tk.Button(root, text="0. Salir", command=root.destroy
               ).pack(fill="x", padx=25, pady=(5, 12))
